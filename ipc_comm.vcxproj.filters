@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Main">
+      <UniqueIdentifier>{284b3333-e0e0-4dbe-9acc-295804daddd2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="cmdp">
+      <UniqueIdentifier>{01fae9d0-0da1-42c2-94cf-73a2805288b3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Comm">
+      <UniqueIdentifier>{3181e43e-ef27-48d8-aa49-e17ca00ad47b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="cmdp.h">
+      <Filter>cmdp</Filter>
+    </ClInclude>
+    <ClInclude Include="comm.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="ipc_comm.cpp">
+      <Filter>Main</Filter>
+    </ClCompile>
+    <ClCompile Include="comm.cpp">
+      <Filter>Comm</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
