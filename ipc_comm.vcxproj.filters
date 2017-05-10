@@ -8,11 +8,11 @@
     <Filter Include="Main">
       <UniqueIdentifier>{284b3333-e0e0-4dbe-9acc-295804daddd2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="cmdp">
-      <UniqueIdentifier>{01fae9d0-0da1-42c2-94cf-73a2805288b3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Comm">
       <UniqueIdentifier>{3181e43e-ef27-48d8-aa49-e17ca00ad47b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{01fae9d0-0da1-42c2-94cf-73a2805288b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -21,10 +21,16 @@
     </ClInclude>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="cmdp.h">
-      <Filter>cmdp</Filter>
+      <Filter>external</Filter>
     </ClInclude>
-    <ClInclude Include="comm.h">
+    <ClInclude Include="ipc_comm_srv.h">
       <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_message.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="scope_guard.h">
+      <Filter>external</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -32,7 +38,7 @@
     <ClCompile Include="ipc_comm.cpp">
       <Filter>Main</Filter>
     </ClCompile>
-    <ClCompile Include="comm.cpp">
+    <ClCompile Include="ipc_comm_srv.cpp">
       <Filter>Comm</Filter>
     </ClCompile>
   </ItemGroup>
