@@ -2,6 +2,7 @@
 #include "ipc_comm_srv.h"
 #include <sstream>
 #include "scope_guard.h"
+#include <iostream>
 
 namespace ipc_comm {
 
@@ -34,21 +35,21 @@ void server::start()
 	saAttr.lpSecurityDescriptor = NULL;
 
 	// Create WRITE pipe for the child process's (client can only write to this pipe, server will read)
-	if(!::CreatePipe(&m_child_write_pipe_rd, &m_child_write_pipe_wr, &saAttr, 0)) {
+	if(!::CreatePipe(&m_client.read_pipe, &m_client.write_pipe, &saAttr, 0)) {
 		std::exception("Create pipe fail");
 	}
 	// Ensure the read handle to the pipe is not inherited.
-	if(!::SetHandleInformation(m_child_write_pipe_rd, HANDLE_FLAG_INHERIT, 0)) {
+	if(!::SetHandleInformation(m_client.read_pipe, HANDLE_FLAG_INHERIT, 0)) {
 		std::exception("SetHandleInformation fail");
 	}
 
 	// Create READ pipe for the child process's (client can only read, server will write)
-	if(!::CreatePipe(&m_child_read_pipe_rd, &m_child_read_pipe_wr, &saAttr, 0)) {
+	if(!::CreatePipe(&m_master.read_pipe, &m_master.write_pipe, &saAttr, 0)) {
 		std::exception("Create pipe fail");
 	}
 
 	// Ensure the write handle to the pipe is not inherited. 
-	if(!::SetHandleInformation(m_child_read_pipe_wr, HANDLE_FLAG_INHERIT, 0)) {
+	if(!::SetHandleInformation(m_master.write_pipe, HANDLE_FLAG_INHERIT, 0)) {
 		std::exception("SetHandleInformation fail");
 	}
 
@@ -74,21 +75,21 @@ void server::stop()
 		m_read_thread = nullptr;
 	}
 
-	if(m_child_write_pipe_rd) {
-		::CloseHandle(m_child_write_pipe_rd);
-		m_child_write_pipe_rd = nullptr;
+	if(m_client.read_pipe) {
+		::CloseHandle(m_client.read_pipe);
+		m_client.read_pipe = nullptr;
 	}
-	if(m_child_write_pipe_wr) {
-		::CloseHandle(m_child_write_pipe_wr);
-		m_child_write_pipe_wr = nullptr;
+	if(m_client.write_pipe) {
+		::CloseHandle(m_client.write_pipe);
+		m_client.write_pipe = nullptr;
 	}
-	if(m_child_read_pipe_rd) {
-		::CloseHandle(m_child_read_pipe_rd);
-		m_child_read_pipe_rd = nullptr;
+	if(m_master.read_pipe) {
+		::CloseHandle(m_master.read_pipe);
+		m_master.read_pipe = nullptr;
 	}
-	if(m_child_read_pipe_wr) {
-		::CloseHandle(m_child_read_pipe_wr);
-		m_child_read_pipe_wr = nullptr;
+	if(m_master.write_pipe) {
+		::CloseHandle(m_master.write_pipe);
+		m_master.write_pipe = nullptr;
 	}
 
 	if(m_shutdown_event) {
@@ -97,39 +98,42 @@ void server::stop()
 	}
 }
 
-void server::send(std::vector<uint8_t>& response)
+void server::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 {
-	std::shared_ptr<message> new_msg = std::make_shared<message>();
+	std::shared_ptr<ipc_comm::message> new_msg = std::make_shared<ipc_comm::message>();
 	m_pending_msgs.insert(std::make_pair(new_msg->id(), new_msg));
 
 	scope_guard guard = [&]() {
 		m_pending_msgs.erase(new_msg->id());
 	};
 
+	DWORD written_bytes;
+	::WriteFile(m_master.write_pipe, message.data(), (DWORD)message.size(), &written_bytes, nullptr);
+
 	// 	bSuccess = ::WriteFile(m_child_read_pipe_wr, chBuf, dwRead, &dwWritten, NULL);
 	// 	if(!bSuccess) break;
 
-	HANDLE wait_handles[2] = { 0 };
-	wait_handles[0] = m_shutdown_event;
-	wait_handles[1] = new_msg->event();
-	DWORD wait_result = WaitForMultipleObjects(
-		_countof(wait_handles),   // number of handles in array
-		wait_handles,             // array of thread handles
-		FALSE,                    // wait until all are signaled
-		INFINITE);
+// 	HANDLE wait_handles[2] = { 0 };
+// 	wait_handles[0] = m_shutdown_event;
+// 	wait_handles[1] = new_msg->event();
+// 	DWORD wait_result = WaitForMultipleObjects(
+// 		_countof(wait_handles),   // number of handles in array
+// 		wait_handles,             // array of thread handles
+// 		FALSE,                    // wait until all are signaled
+// 		INFINITE);
+// 
+// 	switch(wait_result) {
+// 	case WAIT_OBJECT_0:	// m_shutdown_event signaled
+// 		break; // End 
+// 	case WAIT_OBJECT_0 + 1: // new_msg->event signaled
+// 		//TODO: handle response
+// 		break;
+// 	default: // error
+// 		std::exception("Wait for message response fail");
+// 		break;
+// 	}
 
-	switch(wait_result) {
-	case WAIT_OBJECT_0:	// m_shutdown_event signaled
-		break; // End 
-	case WAIT_OBJECT_0 + 1: // new_msg->event signaled
-		//TODO: handle response
-		break;
-	default: // error
-		std::exception("Wait for message response fail");
-		break;
-	}
-
-	response.swap(m_pending_msgs[new_msg->id()]->response_buffer());
+	response = m_pending_msgs[new_msg->id()]->response_buffer();
 }
 
 void server::onmessage()
@@ -140,7 +144,7 @@ void server::onmessage()
 std::wstring server::cmd_params()
 {
 	std::wstringstream cmd_param;
-	cmd_param << L"/write-pipe=" << reinterpret_cast<std::size_t>(m_child_write_pipe_wr) << L" /read-pipe=" << reinterpret_cast<std::size_t>(m_child_read_pipe_rd);
+	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << reinterpret_cast<std::size_t>(m_client.read_pipe) << L" /pipe-w=" << reinterpret_cast<std::size_t>(m_client.write_pipe);
 	return cmd_param.str();
 }
 
@@ -151,8 +155,15 @@ DWORD WINAPI server::read_thread(LPVOID lpParameter)
 	}
 	server* class_ptr = reinterpret_cast<server*>(lpParameter);
 
+	std::vector<uint8_t> buffer;
+	buffer.resize(1000);
+
+	DWORD read_bytes = 0;
+
 	while(true) {
-		// 	bSuccess = ::ReadFile(m_child_write_pipe_rd, chBuf, BUFSIZE, &dwRead, NULL);
+		std::wcout << "*";
+		::ReadFile(class_ptr->m_master.read_pipe, buffer.data(), buffer.size(), &read_bytes, nullptr);
+		std::wcout << std::endl << L"message arrive(size): " << buffer.size() << std::endl;
 		// 	if(!bSuccess || dwRead == 0) break;
 		
 		// Call callbacks

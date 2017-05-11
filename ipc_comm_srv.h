@@ -8,6 +8,11 @@
 
 namespace ipc_comm {
 
+struct client_data {
+	HANDLE read_pipe = nullptr;
+	HANDLE write_pipe = nullptr;
+};
+
 class server
 {
 public:
@@ -17,7 +22,7 @@ public:
 	void start();
 	void stop();
 
-	void send(std::vector<uint8_t>& response);
+	void send(std::vector<uint8_t>& message, std::vector<uint8_t>& response);
 	void onmessage();
 
 	std::wstring cmd_params();
@@ -30,10 +35,12 @@ private:
 private:
 	HANDLE m_shutdown_event = nullptr;
 
-	HANDLE m_child_write_pipe_rd = nullptr;
-	HANDLE m_child_write_pipe_wr = nullptr;
-	HANDLE m_child_read_pipe_rd = nullptr;
-	HANDLE m_child_read_pipe_wr = nullptr;
+	client_data m_master;
+	client_data m_client;
+// 	HANDLE m_child_write_pipe_rd = nullptr;
+// 	HANDLE m_child_write_pipe_wr = nullptr;
+// 	HANDLE m_child_read_pipe_rd = nullptr;
+// 	HANDLE m_child_read_pipe_wr = nullptr;
 
 	HANDLE m_read_thread = nullptr;
 	pending_msg_map m_pending_msgs;

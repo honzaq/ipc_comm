@@ -12,7 +12,7 @@ namespace ipc_comm {
 // Simple unique generator
 namespace message_id {
 static std::atomic<uint32_t> g_uniq_id = 0;
-uint32_t new_id() { return ++g_uniq_id; }
+static uint32_t new_id() { return ++g_uniq_id; }
 } // end of namespace internal
 //////////////////////////////////////////////////////////////////////////
 
