@@ -50,7 +50,7 @@ int wmain(int argc, wchar_t *argv[])
 
 		start_slave(srv.cmd_params().c_str());
 
-		//srv.close_slave_handles();
+		srv.close_slave_handles();
 
 		std::vector<uint8_t> response;
 		std::vector<uint8_t> msg = wstring_convert_to_bytes(L"test");
@@ -61,10 +61,10 @@ int wmain(int argc, wchar_t *argv[])
 	else if(cmdp[L"pipe-slave"]) {
 
 #ifdef _DEBUG
-		std::wcout << L"Waiting for debugger...." << std::endl;
-		while(!::IsDebuggerPresent())
-			::Sleep(100);
-		::DebugBreak();
+// 		std::wcout << L"Waiting for debugger...." << std::endl;
+// 		while(!::IsDebuggerPresent())
+// 			::Sleep(100);
+// 		::DebugBreak();
 #endif
 
 //		std::wstring pipes_param = cmdp(L"pipe-slave").str();

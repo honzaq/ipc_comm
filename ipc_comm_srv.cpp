@@ -161,7 +161,7 @@ void server::onmessage()
 std::wstring server::cmd_params()
 {
 	std::wstringstream cmd_param;
-	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << reinterpret_cast<std::size_t>(m_slave.read_pipe) << L" /pipe-w=" << reinterpret_cast<std::size_t>(m_slave.write_pipe);
+	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << std::hex << reinterpret_cast<std::size_t>(m_slave.read_pipe) << L" /pipe-w=" << std::hex << reinterpret_cast<std::size_t>(m_slave.write_pipe);
 	return cmd_param.str();
 }
 
@@ -186,11 +186,16 @@ DWORD WINAPI server::read_thread(LPVOID lpParameter)
 	while(true) {
 		std::wcout << "*";
 		if(!::ReadFile(class_ptr->m_master.read_pipe, buffer.data(), buffer.size(), &read_bytes, nullptr)) {
-			std::wcout << "Error read pipe: " << GetLastError() << std::endl;
+			DWORD last_error = ::GetLastError();
+			std::wcout << L"Error read pipe: " << std::dec << last_error << std::endl;
+			if(last_error == ERROR_BROKEN_PIPE) {
+				break;
+			}
 		}
 		buffer.resize(read_bytes);
 		std::wcout << std::endl << L"message arrive(size): " << wstring_convert_from_bytes(buffer) << std::endl;
 		// 	if(!bSuccess || dwRead == 0) break;
+		//class_ptr->close_slave_handles();
 		
 		// Call callbacks
 		//class_ptr->onmessage();
