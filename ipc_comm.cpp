@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <codecvt>
+#include <iostream>
 //////////////////////////////////////////////////////////////////////////
 
 std::vector<uint8_t> wstring_convert_to_bytes(const wchar_t *str)
@@ -25,7 +26,6 @@ void start_slave(const wchar_t* params)
 	STARTUPINFO siStartInfo;
 	::ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
 	::ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
-	//siStartInfo.cb = sizeof(STARTUPINFO);
 	::GetStartupInfo(&siStartInfo);
 
 	WCHAR szPath[MAX_PATH];
@@ -33,8 +33,11 @@ void start_slave(const wchar_t* params)
 
 	WCHAR cmdLine[MAX_PATH];
 	wcscpy_s(cmdLine, MAX_PATH, params);
+	std::wcout << L" params: " << cmdLine << std::endl;
 
-	::CreateProcessW(szPath, cmdLine, NULL, NULL, TRUE, CREATE_NEW_CONSOLE/*spise 0*/, NULL, NULL, &siStartInfo, &piProcInfo);
+	if(!::CreateProcessW(szPath, cmdLine, NULL, NULL, TRUE, CREATE_NEW_CONSOLE/*spise 0*/, NULL, NULL, &siStartInfo, &piProcInfo)) {
+		std::wcout << L"Create process fail:" << ::GetLastError() << std::endl;
+	}
 }
 
 int wmain(int argc, wchar_t *argv[])
@@ -47,13 +50,22 @@ int wmain(int argc, wchar_t *argv[])
 
 		start_slave(srv.cmd_params().c_str());
 
+		//srv.close_slave_handles();
+
 		std::vector<uint8_t> response;
 		std::vector<uint8_t> msg = wstring_convert_to_bytes(L"test");
-		srv.send(msg, response);
+		//srv.send(msg, response);
 
 		srv.stop();
 	}
 	else if(cmdp[L"pipe-slave"]) {
+
+#ifdef _DEBUG
+		std::wcout << L"Waiting for debugger...." << std::endl;
+		while(!::IsDebuggerPresent())
+			::Sleep(100);
+		::DebugBreak();
+#endif
 
 //		std::wstring pipes_param = cmdp(L"pipe-slave").str();
 
@@ -62,7 +74,13 @@ int wmain(int argc, wchar_t *argv[])
 		cmdp(L"pipe-w") >> write_pipe;
 
 		DWORD written_bytes;
-		::WriteFile(write_pipe, L"a", (DWORD)2, &written_bytes, nullptr);
+		std::vector<uint8_t> msg = wstring_convert_to_bytes(L"slave-msg");
+		if(!::WriteFile(write_pipe, msg.data(), (DWORD)msg.size(), &written_bytes, nullptr)) {
+			std::wcout << L"Write pipe fail: " << ::GetLastError() << std::endl;
+		}
+
+		::CloseHandle(read_pipe);
+		::CloseHandle(write_pipe);
 	}
 
     return 0;

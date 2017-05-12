@@ -3,6 +3,8 @@
 #include <sstream>
 #include "scope_guard.h"
 #include <iostream>
+#include <codecvt>
+#include <string>
 
 namespace ipc_comm {
 
@@ -34,24 +36,27 @@ void server::start()
 	saAttr.bInheritHandle = TRUE;
 	saAttr.lpSecurityDescriptor = NULL;
 
-	// Create WRITE pipe for the child process's (client can only write to this pipe, server will read)
-	if(!::CreatePipe(&m_client.read_pipe, &m_client.write_pipe, &saAttr, 0)) {
+	// Create Master->Slave direction (master write, slave read)
+	if(!::CreatePipe(&m_slave.read_pipe, &m_master.write_pipe, &saAttr, 0)) {
 		std::exception("Create pipe fail");
 	}
-	// Ensure the read handle to the pipe is not inherited.
-	if(!::SetHandleInformation(m_client.read_pipe, HANDLE_FLAG_INHERIT, 0)) {
-		std::exception("SetHandleInformation fail");
-	}
-
-	// Create READ pipe for the child process's (client can only read, server will write)
-	if(!::CreatePipe(&m_master.read_pipe, &m_master.write_pipe, &saAttr, 0)) {
-		std::exception("Create pipe fail");
-	}
-
-	// Ensure the write handle to the pipe is not inherited. 
+	// Ensure the master-write handle to the pipe is not inherited.
 	if(!::SetHandleInformation(m_master.write_pipe, HANDLE_FLAG_INHERIT, 0)) {
 		std::exception("SetHandleInformation fail");
 	}
+
+	// Create Master<-Slave direction (Slave write, master read)
+	if(!::CreatePipe(&m_master.read_pipe, &m_slave.write_pipe, &saAttr, 0)) {
+		std::exception("Create pipe fail");
+	}
+	// Ensure the master-read handle to the pipe is not inherited. 
+	if(!::SetHandleInformation(m_master.read_pipe, HANDLE_FLAG_INHERIT, 0)) {
+		std::exception("SetHandleInformation fail");
+	}
+
+	std::wcout << L"Handles slave: " << std::hex << m_slave.read_pipe << L", " << std::hex << m_slave.write_pipe << std::endl;
+	std::wcout << L"Handles master: " << std::hex << m_master.read_pipe << L", " << std::hex << m_master.write_pipe << std::endl;
+
 
 	DWORD thread_id = 0;
 	m_read_thread = ::CreateThread(nullptr, 0, &server::read_thread, this, 0, &thread_id);
@@ -75,13 +80,13 @@ void server::stop()
 		m_read_thread = nullptr;
 	}
 
-	if(m_client.read_pipe) {
-		::CloseHandle(m_client.read_pipe);
-		m_client.read_pipe = nullptr;
+	if(m_slave.read_pipe) {
+		::CloseHandle(m_slave.read_pipe);
+		m_slave.read_pipe = nullptr;
 	}
-	if(m_client.write_pipe) {
-		::CloseHandle(m_client.write_pipe);
-		m_client.write_pipe = nullptr;
+	if(m_slave.write_pipe) {
+		::CloseHandle(m_slave.write_pipe);
+		m_slave.write_pipe = nullptr;
 	}
 	if(m_master.read_pipe) {
 		::CloseHandle(m_master.read_pipe);
@@ -95,6 +100,18 @@ void server::stop()
 	if(m_shutdown_event) {
 		::CloseHandle(m_shutdown_event);
 		m_shutdown_event = nullptr;
+	}
+}
+
+void server::close_slave_handles()
+{
+	if(m_slave.read_pipe) {
+		::CloseHandle(m_slave.read_pipe);
+		m_slave.read_pipe = nullptr;
+	}
+	if(m_slave.write_pipe) {
+		::CloseHandle(m_slave.write_pipe);
+		m_slave.write_pipe = nullptr;
 	}
 }
 
@@ -144,8 +161,14 @@ void server::onmessage()
 std::wstring server::cmd_params()
 {
 	std::wstringstream cmd_param;
-	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << reinterpret_cast<std::size_t>(m_client.read_pipe) << L" /pipe-w=" << reinterpret_cast<std::size_t>(m_client.write_pipe);
+	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << reinterpret_cast<std::size_t>(m_slave.read_pipe) << L" /pipe-w=" << reinterpret_cast<std::size_t>(m_slave.write_pipe);
 	return cmd_param.str();
+}
+
+std::wstring wstring_convert_from_bytes(const std::vector<char> &v)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+	return converter.from_bytes(v.data(), v.data() + v.size());
 }
 
 DWORD WINAPI server::read_thread(LPVOID lpParameter)
@@ -155,15 +178,18 @@ DWORD WINAPI server::read_thread(LPVOID lpParameter)
 	}
 	server* class_ptr = reinterpret_cast<server*>(lpParameter);
 
-	std::vector<uint8_t> buffer;
+	std::vector<char> buffer;
 	buffer.resize(1000);
 
 	DWORD read_bytes = 0;
 
 	while(true) {
 		std::wcout << "*";
-		::ReadFile(class_ptr->m_master.read_pipe, buffer.data(), buffer.size(), &read_bytes, nullptr);
-		std::wcout << std::endl << L"message arrive(size): " << buffer.size() << std::endl;
+		if(!::ReadFile(class_ptr->m_master.read_pipe, buffer.data(), buffer.size(), &read_bytes, nullptr)) {
+			std::wcout << "Error read pipe: " << GetLastError() << std::endl;
+		}
+		buffer.resize(read_bytes);
+		std::wcout << std::endl << L"message arrive(size): " << wstring_convert_from_bytes(buffer) << std::endl;
 		// 	if(!bSuccess || dwRead == 0) break;
 		
 		// Call callbacks

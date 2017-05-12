@@ -22,6 +22,8 @@ public:
 	void start();
 	void stop();
 
+	void close_slave_handles();
+
 	void send(std::vector<uint8_t>& message, std::vector<uint8_t>& response);
 	void onmessage();
 
@@ -36,7 +38,7 @@ private:
 	HANDLE m_shutdown_event = nullptr;
 
 	client_data m_master;
-	client_data m_client;
+	client_data m_slave;
 // 	HANDLE m_child_write_pipe_rd = nullptr;
 // 	HANDLE m_child_write_pipe_wr = nullptr;
 // 	HANDLE m_child_read_pipe_rd = nullptr;
