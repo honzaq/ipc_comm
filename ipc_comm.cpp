@@ -19,6 +19,12 @@ std::vector<uint8_t> wstring_convert_to_bytes(const wchar_t *str)
 	std::string string = converter.to_bytes(str);
 	return std::vector<uint8_t>(string.begin(), string.end());
 }
+std::vector<uint8_t> wstring_convert_to_bytes(std::wstring& str)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+	std::string string = converter.to_bytes(str);
+	return std::vector<uint8_t>(string.begin(), string.end());
+}
 
 void start_slave(const wchar_t* params)
 {
@@ -50,11 +56,13 @@ int wmain(int argc, wchar_t *argv[])
 
 		start_slave(srv.cmd_params().c_str());
 
-		srv.close_slave_handles();
+		srv.post_slave_start();
 
 		std::vector<uint8_t> response;
 		std::vector<uint8_t> msg = wstring_convert_to_bytes(L"test");
 		//srv.send(msg, response);
+
+		::Sleep(1000);
 
 		srv.stop();
 	}
@@ -67,17 +75,31 @@ int wmain(int argc, wchar_t *argv[])
 // 		::DebugBreak();
 #endif
 
-//		std::wstring pipes_param = cmdp(L"pipe-slave").str();
-
 		HANDLE read_pipe = 0, write_pipe = 0;
 		cmdp(L"pipe-r") >> read_pipe;
 		cmdp(L"pipe-w") >> write_pipe;
 
-		DWORD written_bytes;
-		std::vector<uint8_t> msg = wstring_convert_to_bytes(L"slave-msg");
-		if(!::WriteFile(write_pipe, msg.data(), (DWORD)msg.size(), &written_bytes, nullptr)) {
-			std::wcout << L"Write pipe fail: " << ::GetLastError() << std::endl;
+		std::wcout << L"Hello I'm your SLAVE (read-pipe:" << std::hex << read_pipe << L", write-pipe:" << std::hex << write_pipe << L")" << std::endl;
+
+		DWORD written_bytes = 0;
+
+		std::wstring msgText(L"slave-msg");
+
+		ipc_comm::header new_header;
+		new_header.id = 9;
+		new_header.flags = 3;
+		new_header.message_size = msgText.size();
+		if(!::WriteFile(write_pipe, &new_header, (DWORD)sizeof(new_header), &written_bytes, nullptr)) {
+			std::wcout << L"Write header to pipe fail: " << ::GetLastError() << std::endl;
 		}
+		std::wcout << L"Header send" << std::endl;
+
+		std::vector<uint8_t> msg = wstring_convert_to_bytes(msgText);
+		if(!::WriteFile(write_pipe, msg.data(), (DWORD)msg.size(), &written_bytes, nullptr)) {
+			std::wcout << L"Write message pipe fail: " << ::GetLastError() << std::endl;
+		}
+
+		::Sleep(15000);
 
 		::CloseHandle(read_pipe);
 		::CloseHandle(write_pipe);

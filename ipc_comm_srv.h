@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include "ipc_message.h"
+#include <mutex>
 
 namespace ipc_comm {
 
@@ -22,9 +23,9 @@ public:
 	void start();
 	void stop();
 
-	void close_slave_handles();
+	void post_slave_start();
 
-	void send(std::vector<uint8_t>& message, std::vector<uint8_t>& response);
+	bool send(std::vector<uint8_t>& message, std::vector<uint8_t>& response);
 	void onmessage();
 
 	std::wstring cmd_params();
@@ -32,17 +33,15 @@ public:
 private:
 	void run();
 
-	static DWORD WINAPI read_thread(LPVOID lpParameter);
+	static DWORD WINAPI read_thread_proc(LPVOID lpParameter);
+	DWORD read_thread();
 
 private:
+	std::mutex m_write_lock;
 	HANDLE m_shutdown_event = nullptr;
 
 	client_data m_master;
 	client_data m_slave;
-// 	HANDLE m_child_write_pipe_rd = nullptr;
-// 	HANDLE m_child_write_pipe_wr = nullptr;
-// 	HANDLE m_child_read_pipe_rd = nullptr;
-// 	HANDLE m_child_read_pipe_wr = nullptr;
 
 	HANDLE m_read_thread = nullptr;
 	pending_msg_map m_pending_msgs;
