@@ -32,6 +32,9 @@
     <ClInclude Include="scope_guard.h">
       <Filter>external</Filter>
     </ClInclude>
+    <ClInclude Include="convert.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

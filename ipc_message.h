@@ -6,14 +6,14 @@
 #include <memory>
 #include <vector>
 
-namespace ipc_comm {
+namespace ipc {
 
 //////////////////////////////////////////////////////////////////////////
 // Simple unique generator
 namespace message_id {
 
 static std::atomic<uint32_t> g_uniq_id = 0;
-static uint32_t new_id() { 
+static inline uint32_t new_id() { 
 	return ++g_uniq_id;
 }
 
@@ -71,6 +71,10 @@ public:
 		return m_response_buffer;
 	}
 
+	void set_response(std::vector<uint8_t>& data) {
+		m_response_buffer = std::move(data);
+	}
+
 private:
 	uint32_t m_id = 0;
 	HANDLE   m_event = nullptr;
@@ -79,4 +83,4 @@ private:
 
 typedef std::map<uint32_t, std::shared_ptr<response_message>> pending_msg_map;
 
-} // end of namespace ipc_comm
+} // end of namespace ipc

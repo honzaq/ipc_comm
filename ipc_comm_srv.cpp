@@ -3,10 +3,10 @@
 #include <sstream>
 #include "scope_guard.h"
 #include <iostream>
-#include <codecvt>
 #include <string>
+#include "convert.h"
 
-namespace ipc_comm {
+namespace ipc {
 
 constexpr size_t BUFFER_LEN = 4096;
 
@@ -71,6 +71,7 @@ void server::start()
 
 void server::stop()
 {
+	// Set shutdown event (will stop all response wait)
 	::SetEvent(m_shutdown_event);
 
 	// Close read pipe so endless ReadFile with end with error ERROR_INVALID_HANDLE
@@ -124,52 +125,103 @@ void server::post_slave_start()
 
 bool server::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 {
-	std::shared_ptr<ipc_comm::response_message> new_msg = std::make_shared<ipc_comm::response_message>();
+	// Add message info to map for response wait
+	std::shared_ptr<ipc::response_message> new_msg = std::make_shared<ipc::response_message>(message_id::new_id());
 	m_pending_msgs.insert(std::make_pair(new_msg->id(), new_msg));
-
+	// Create guard to auto remove message from map
 	scope_guard guard = [&]() {
 		m_pending_msgs.erase(new_msg->id());
 	};
 
+	DWORD written_bytes = 0;
 	//////////////////////////////////////////////////////////////////////////
 	// Only WriteFile at the time
-	std::lock_guard<std::mutex> guard(m_write_lock);
+	{
+		std::lock_guard<std::mutex> one_send_guard(m_write_lock);
 
-	DWORD written_bytes = 0;
-	if(!::WriteFile(m_master.write_pipe, message.data(), (DWORD)message.size(), &written_bytes, nullptr)) {
-		std::wcout << L"Write message fail: " << ::GetLastError() << std::endl;
-		return false;
+		//////////////////////////////////////////////////////////////////////////
+		// Write header
+		auto header_data = std::make_unique<header>();
+		header_data->id = new_msg->id();
+		header_data->flags = HEADER_FLAG_USER_MSG;
+		header_data->message_size = message.size();
+
+		if(!::WriteFile(m_master.write_pipe, header_data.get(), sizeof(ipc::header), &written_bytes, nullptr)) {
+			std::wcout << L"Write header fail: " << ::GetLastError() << std::endl;
+			return false;
+		}
+
+		//////////////////////////////////////////////////////////////////////////
+		// Write message
+		if(!::WriteFile(m_master.write_pipe, message.data(), (DWORD)message.size(), &written_bytes, nullptr)) {
+			std::wcout << L"Write message fail: " << ::GetLastError() << std::endl;
+			return false;
+		}
 	}
 
-	// 	bSuccess = ::WriteFile(m_child_read_pipe_wr, chBuf, dwRead, &dwWritten, NULL);
-	// 	if(!bSuccess) break;
+	// Wait for response
+ 	HANDLE wait_handles[2] = { 0 };
+ 	wait_handles[0] = m_shutdown_event;
+ 	wait_handles[1] = new_msg->event();
+ 	DWORD wait_result = WaitForMultipleObjects(
+ 		_countof(wait_handles),   // number of handles in array
+ 		wait_handles,             // array of thread handles
+ 		FALSE,                    // wait until all are signaled
+ 		INFINITE);
+ 
+ 	switch(wait_result) {
+ 	case WAIT_OBJECT_0:	// m_shutdown_event signaled
+ 		return false; // End 
+	case WAIT_OBJECT_0 + 1: // new_msg->event signaled
+		response = m_pending_msgs[new_msg->id()]->response_buffer();
+ 		break;
+ 	default: // error
+ 		std::exception("Wait for message response fail");
+		return false;
+ 	}
 
-// 	HANDLE wait_handles[2] = { 0 };
-// 	wait_handles[0] = m_shutdown_event;
-// 	wait_handles[1] = new_msg->event();
-// 	DWORD wait_result = WaitForMultipleObjects(
-// 		_countof(wait_handles),   // number of handles in array
-// 		wait_handles,             // array of thread handles
-// 		FALSE,                    // wait until all are signaled
-// 		INFINITE);
-// 
-// 	switch(wait_result) {
-// 	case WAIT_OBJECT_0:	// m_shutdown_event signaled
-// 		break; // End 
-// 	case WAIT_OBJECT_0 + 1: // new_msg->event signaled
-// 		//TODO: handle response
-// 		break;
-// 	default: // error
-// 		std::exception("Wait for message response fail");
-// 		break;
-// 	}
-
-	response = m_pending_msgs[new_msg->id()]->response_buffer();
+	return true;
 }
 
-void server::onmessage()
+bool server::send_response(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& response)
 {
+	DWORD written_bytes = 0;
+	//////////////////////////////////////////////////////////////////////////
+	// Only WriteFile at the time
+	{
+		std::lock_guard<std::mutex> one_send_guard(m_write_lock);
 
+		//////////////////////////////////////////////////////////////////////////
+		// Write header
+		header->flags = HEADER_FLAG_USER_MSG_RESPONSE;
+		header->message_size = response.size();
+
+		if(!::WriteFile(m_master.write_pipe, header.get(), sizeof(ipc::header), &written_bytes, nullptr)) {
+			std::wcout << L"Write header fail: " << ::GetLastError() << std::endl;
+			return false;
+		}
+
+		//////////////////////////////////////////////////////////////////////////
+		// Write message
+		if(!::WriteFile(m_master.write_pipe, response.data(), (DWORD)response.size(), &written_bytes, nullptr)) {
+			std::wcout << L"Write message fail: " << ::GetLastError() << std::endl;
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void server::onmessage(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& message)
+{
+	// header is internal here 
+	std::wcout << L"# message arrive: " << wstring_convert_from_bytes(message) << std::endl;
+
+	// resend to all registered users
+	std::vector<uint8_t> response;
+
+
+	send_response(header, response);
 }
 
 std::wstring server::cmd_params()
@@ -178,17 +230,6 @@ std::wstring server::cmd_params()
 	// Because PIPE "IDs" are HEXa numbers we must pass HEXa number (so slave can open (find) the PIPE)
 	cmd_param << L"/pipe-slave" << L" " << L"/pipe-r=" << std::hex << reinterpret_cast<std::size_t>(m_slave.read_pipe) << L" /pipe-w=" << std::hex << reinterpret_cast<std::size_t>(m_slave.write_pipe);
 	return cmd_param.str();
-}
-
-// std::wstring wstring_convert_from_bytes(const std::vector<char> &v)
-// {
-// 	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-// 	return converter.from_bytes(v.data(), v.data() + v.size());
-// }
-std::wstring wstring_convert_from_bytes(std::string &v)
-{
-	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
-	return converter.from_bytes(v.data());
 }
 
 DWORD WINAPI server::read_thread_proc(LPVOID lpParameter)
@@ -235,36 +276,45 @@ DWORD server::read_thread()
 
 		std::wcout << L"* header arrive:" << L"id:" << header_data->id << L" flags:" << header_data->flags << L" message_size:" << header_data->message_size << std::endl;
 
-		//////////////////////////////////////////////////////////////////////////
-		// Read MESSAGE
-		read_bytes = 0;
-		auto message = std::make_unique<uint8_t[]>(header_data->message_size);
-		if(!::ReadFile(m_master.read_pipe, message.get(), header_data->message_size, &read_bytes, nullptr)) {
-			DWORD last_error = ::GetLastError();
-			std::wcout << L"Error read pipe: " << std::dec << last_error << std::endl;
-			if(last_error == ERROR_BROKEN_PIPE || last_error == ERROR_PIPE_NOT_CONNECTED) {
-				// ERROR_BROKEN_PIPE slave died
-				// ERROR_PIPE_NOT_CONNECTED master died
-				break;
-			}
-			else {
-				// ERROR_INVALID_HANDLE (can happens if we close read handle to end this thread)
-				break;
+		std::vector<uint8_t> message(header_data->message_size);
+		if(header_data->message_size > 0) {
+
+			//////////////////////////////////////////////////////////////////////////
+			// Read MESSAGE
+			read_bytes = 0;
+			if(!::ReadFile(m_master.read_pipe, message.data(), header_data->message_size, &read_bytes, nullptr)) {
+				DWORD last_error = ::GetLastError();
+				std::wcout << L"Error read pipe: " << std::dec << last_error << std::endl;
+				if(last_error == ERROR_BROKEN_PIPE || last_error == ERROR_PIPE_NOT_CONNECTED) {
+					// ERROR_BROKEN_PIPE slave died
+					// ERROR_PIPE_NOT_CONNECTED master died
+					break;
+				} else {
+					// ERROR_INVALID_HANDLE (can happens if we close read handle to end this thread)
+					break;
+				}
+
+				// ERROR_INSUFFICIENT_BUFFER 
 			}
 
-			// ERROR_INSUFFICIENT_BUFFER 
+			//std::string print_buffer(message.get(), message.get() + header_data->message_size);
+			std::wcout << L" * message arrive: " << wstring_convert_from_bytes(message) << std::endl;
 		}
 
- 		std::string print_buffer(message.get(), message.get() + header_data->message_size);
- 		std::wcout << L" * message arrive: " << wstring_convert_from_bytes(print_buffer) << std::endl;
-		// 	if(!bSuccess || dwRead == 0) break;
-		//close_slave_handles();
-		
-		// Call callbacks
-		//onmessage();
+		if(header_data->flags == HEADER_FLAG_USER_MSG_RESPONSE) {
+
+			auto item = m_pending_msgs.find(header_data->id);
+			if(item != m_pending_msgs.end()) {
+				item->second->set_response(message);
+				::SetEvent(item->second->event());
+			}
+		}
+		else if(header_data->flags == HEADER_FLAG_USER_MSG) {
+			onmessage(std::move(header_data), message);
+		}
 	}
 	return 0;
 }
 
 
-} // end of namespace ipc_comm
+} // end of namespace ipc

@@ -7,7 +7,7 @@
 #include "ipc_message.h"
 #include <mutex>
 
-namespace ipc_comm {
+namespace ipc {
 
 struct client_data {
 	HANDLE read_pipe = nullptr;
@@ -26,7 +26,7 @@ public:
 	void post_slave_start();
 
 	bool send(std::vector<uint8_t>& message, std::vector<uint8_t>& response);
-	void onmessage();
+	void onmessage(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& message);
 
 	std::wstring cmd_params();
 
@@ -35,6 +35,8 @@ private:
 
 	static DWORD WINAPI read_thread_proc(LPVOID lpParameter);
 	DWORD read_thread();
+
+	bool send_response(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& response);
 
 private:
 	std::mutex m_write_lock;
@@ -49,4 +51,4 @@ private:
 	
 };
 
-} // end of namespace ipc_comm
+} // end of namespace ipc
