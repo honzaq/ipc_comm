@@ -23,16 +23,25 @@
     <ClInclude Include="cmdp.h">
       <Filter>external</Filter>
     </ClInclude>
-    <ClInclude Include="ipc_comm_srv.h">
-      <Filter>Comm</Filter>
-    </ClInclude>
-    <ClInclude Include="ipc_message.h">
-      <Filter>Comm</Filter>
-    </ClInclude>
     <ClInclude Include="scope_guard.h">
       <Filter>external</Filter>
     </ClInclude>
     <ClInclude Include="convert.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_master.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_master_intf.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_data.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_slave_intf.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_slave.h">
       <Filter>Comm</Filter>
     </ClInclude>
   </ItemGroup>
@@ -41,7 +50,10 @@
     <ClCompile Include="ipc_comm.cpp">
       <Filter>Main</Filter>
     </ClCompile>
-    <ClCompile Include="ipc_comm_srv.cpp">
+    <ClCompile Include="ipc_master.cpp">
+      <Filter>Comm</Filter>
+    </ClCompile>
+    <ClCompile Include="ipc_slave.cpp">
       <Filter>Comm</Filter>
     </ClCompile>
   </ItemGroup>

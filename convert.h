@@ -3,7 +3,7 @@
 #include <vector>
 #include <codecvt>
 
-namespace ipc {
+namespace utils {
 
 static inline std::wstring wstring_convert_from_bytes(const std::vector<uint8_t>& v)
 {
@@ -29,4 +29,4 @@ static inline std::vector<uint8_t> wstring_convert_to_bytes(std::wstring& str)
 	return std::vector<uint8_t>(string.begin(), string.end());
 }
 
-} // end of namespace ipc
+} // end of namespace utils

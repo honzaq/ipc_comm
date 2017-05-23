@@ -148,15 +148,19 @@
   <ItemGroup>
     <ClInclude Include="cmdp.h" />
     <ClInclude Include="convert.h" />
-    <ClInclude Include="ipc_comm_srv.h" />
-    <ClInclude Include="ipc_message.h" />
+    <ClInclude Include="ipc_master.h" />
+    <ClInclude Include="ipc_master_intf.h" />
+    <ClInclude Include="ipc_data.h" />
+    <ClInclude Include="ipc_slave.h" />
+    <ClInclude Include="ipc_slave_intf.h" />
     <ClInclude Include="scope_guard.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ipc_comm_srv.cpp" />
+    <ClCompile Include="ipc_master.cpp" />
     <ClCompile Include="ipc_comm.cpp" />
+    <ClCompile Include="ipc_slave.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

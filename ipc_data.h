@@ -33,6 +33,15 @@ struct header {
 };
 //////////////////////////////////////////////////////////////////////////
 
+struct client_data {
+	HANDLE read_pipe = nullptr;
+	HANDLE write_pipe = nullptr;
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+typedef std::function<void(const std::vector<uint8_t>& message, std::vector<uint8_t>& response)> message_callback_fn;
+
 //////////////////////////////////////////////////////////////////////////
 // Message
 class message
@@ -77,7 +86,7 @@ public:
 
 private:
 	uint32_t m_id = 0;
-	HANDLE   m_event = nullptr;
+	HANDLE m_event = nullptr;
 	std::vector<uint8_t> m_response_buffer;
 };
 
