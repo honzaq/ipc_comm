@@ -23,7 +23,7 @@ master::master(message_callback_fn fn_callback)
 master::~master()
 {
 	try {
-		stop();
+		release();
 	} catch (...) {}
 }
 
@@ -77,7 +77,11 @@ void master::initialize()
 
 void master::release()
 {
+	std::wcout << L"Releasing..." << std::endl;
+
 	close_comm();
+
+	std::wcout << L"Releasing after comm..." << std::endl;
 
 	// Wait for thread
 	if(m_read_thread) {
@@ -87,6 +91,8 @@ void master::release()
 		::CloseHandle(m_read_thread);
 		m_read_thread = nullptr;
 	}
+
+	std::wcout << L"Releasing after thread..." << std::endl;
 
 	if(m_master.read_pipe) {
 		::CloseHandle(m_master.read_pipe);
@@ -108,10 +114,16 @@ void master::release()
 		::CloseHandle(m_shutdown_event);
 		m_shutdown_event = nullptr;
 	}
+
+	std::wcout << L"Releasing done..." << std::endl;
 }
 
 void master::close_comm()
 {
+	std::wcout << L"Closing communication..." << std::endl;
+
+	m_comm_started = false;
+
 	// Set shutdown event (will stop all response wait)
 	if(m_shutdown_event != nullptr) {
 		::SetEvent(m_shutdown_event);
@@ -124,6 +136,8 @@ void master::close_comm()
 			m_master.write_pipe = nullptr;
 		}
 	}
+
+	std::wcout << L"Closing communication done..." << std::endl;
 }
 
 void master::stop()
@@ -142,6 +156,7 @@ void master::slave_started()
 		::CloseHandle(m_slave.write_pipe);
 		m_slave.write_pipe = nullptr;
 	}
+	m_comm_started = true;
 }
 
 bool master::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
@@ -154,11 +169,17 @@ bool master::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 		m_pending_msgs.erase(new_msg->id());
 	};
 
+	std::wcout << L"Sending message..." << std::endl;
+
 	DWORD written_bytes = 0;
 	//////////////////////////////////////////////////////////////////////////
 	// Only WriteFile at the time
 	{
 		std::lock_guard<std::mutex> one_send_guard(m_write_lock);
+
+		if(!m_comm_started) {
+			return false;
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		// Write header
@@ -172,6 +193,8 @@ bool master::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 			return false;
 		}
 
+		std::wcout << L"Sending header send..." << std::endl;
+
 		//////////////////////////////////////////////////////////////////////////
 		// Write message
 		if(message.size()) {
@@ -179,6 +202,7 @@ bool master::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 				std::wcout << L"Write message fail: " << ::GetLastError() << std::endl;
 				return false;
 			}
+			std::wcout << L"Sending message send..." << std::endl;
 		}
 	}
 
@@ -203,16 +227,23 @@ bool master::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 		return false;
  	}
 
+	std::wcout << L"Sending message OK." << std::endl;
+
 	return true;
 }
 
 bool master::send_response(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& response)
 {
+	std::wcout << L"DBG:Sending response" << std::endl;
 	DWORD written_bytes = 0;
 	//////////////////////////////////////////////////////////////////////////
 	// Only WriteFile at the time
 	{
 		std::lock_guard<std::mutex> one_send_guard(m_write_lock);
+
+		if(!m_comm_started) {
+			return false;
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		// Write header

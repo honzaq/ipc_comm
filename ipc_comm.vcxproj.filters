@@ -11,7 +11,7 @@
     <Filter Include="Comm">
       <UniqueIdentifier>{3181e43e-ef27-48d8-aa49-e17ca00ad47b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="external">
+    <Filter Include="Comm\external">
       <UniqueIdentifier>{01fae9d0-0da1-42c2-94cf-73a2805288b3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -21,10 +21,10 @@
     </ClInclude>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="cmdp.h">
-      <Filter>external</Filter>
+      <Filter>Comm\external</Filter>
     </ClInclude>
     <ClInclude Include="scope_guard.h">
-      <Filter>external</Filter>
+      <Filter>Comm\external</Filter>
     </ClInclude>
     <ClInclude Include="convert.h">
       <Filter>Comm</Filter>

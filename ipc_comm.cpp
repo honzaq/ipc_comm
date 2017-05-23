@@ -14,6 +14,15 @@
 #include <iostream>
 //////////////////////////////////////////////////////////////////////////
 
+void WaitForDebugger()
+{
+#ifdef _DEBUG
+	std::wcout << L"Waiting for debugger...." << std::endl;
+	while(!::IsDebuggerPresent())
+		::Sleep(100);
+	::DebugBreak();
+#endif
+}
 
 void start_slave(const wchar_t* params)
 {
@@ -41,33 +50,41 @@ int wmain(int argc, wchar_t *argv[])
 
 	if(cmdp[L"pipe-master"]) {
 		std::wcout << L"Hello I'm your MASTER" << std::endl;
+
+		int msg_receive_count = 0;
+
 		ipc::master::factory master_factory;
 		std::shared_ptr<ipc::master_intf> master_ptr = master_factory.create_master([&](const std::vector<uint8_t>& message, std::vector<uint8_t>& response) {
 			std::wcout << L"OnMessage(master): " << utils::wstring_convert_from_bytes(message) << std::endl;
-			response = utils::wstring_convert_to_bytes(L"master-send: test-response");
+			response = utils::wstring_convert_to_bytes(L"I'm master response.");
+			msg_receive_count++;
 		});
 
 		start_slave(master_ptr->cmd_pipe_params().c_str());
 
 		master_ptr->slave_started();
 
-// 		std::vector<uint8_t> response;
-// 		std::vector<uint8_t> msg = utils::wstring_convert_to_bytes(L"master-send: test msg");
-// 		master_ptr->send(msg, response);
-// 		std::wcout << L"test response is:" << utils::wstring_convert_from_bytes(response) << std::endl;
+		
+		for(int i = 0; i < 100; i++) {
+			std::vector<uint8_t> response;
+			std::vector<uint8_t> msg = utils::wstring_convert_to_bytes(L"I'm master message.");
+			master_ptr->send(msg, response);
+			std::wcout << L"slave response is:" << utils::wstring_convert_from_bytes(response) << std::endl;
+		}
 
-		::Sleep(15000);
+		std::wcout << L"*** sleeping ***" << std::endl;
+
+		//::Sleep(15000);
+
+		std::wcout << L"*** stopping ***" << std::endl;
 
 		master_ptr->stop();
+
+		std::wcout << L"*** stopped ***" << L" received messages count (" << msg_receive_count << L")" << std::endl;
+
+		::Sleep(15000);
 	}
 	else if(cmdp[L"pipe-slave"]) {
-
-#ifdef _DEBUG
-// 		std::wcout << L"Waiting for debugger...." << std::endl;
-// 		while(!::IsDebuggerPresent())
-// 			::Sleep(100);
-// 		::DebugBreak();
-#endif
 
 		HANDLE read_pipe = 0, write_pipe = 0;
 		cmdp(L"pipe-r") >> read_pipe;
@@ -79,40 +96,24 @@ int wmain(int argc, wchar_t *argv[])
 		std::shared_ptr<ipc::slave_intf> slave_ptr = slave_factory.create_slave(read_pipe, write_pipe, [&](const std::vector<uint8_t>& message, std::vector<uint8_t>& response) {
 			std::wcout << L"OnMessage(slave)" << utils::wstring_convert_from_bytes(message) << std::endl;
 
-			response = utils::wstring_convert_to_bytes(L"slave-send: test-response");
+			response = utils::wstring_convert_to_bytes(L"I'm slave response.");
 		});
 
-		std::vector<uint8_t> response;
-		std::vector<uint8_t> msg = utils::wstring_convert_to_bytes(L"slave-send: test msg");
-		slave_ptr->send(msg, response);
-		std::wcout << L"test response is:" << utils::wstring_convert_from_bytes(response) << std::endl;
+		for(int i = 0; i < 100; i++) {
+			std::vector<uint8_t> response;
+			std::vector<uint8_t> msg = utils::wstring_convert_to_bytes(L"I'm slave message.");
+			slave_ptr->send(msg, response);
+			std::wcout << L"master response is:" << utils::wstring_convert_from_bytes(response) << std::endl;
+		}
+
+		std::wcout << L"*** sleeping ***" << std::endl;
 
 		::Sleep(5000);
+		//WaitForDebugger();
+
+		std::wcout << L"*** stopping ***" << std::endl;
 
 		slave_ptr->stop();
-
-// 		DWORD written_bytes = 0;
-// 
-// 		std::wstring msgText(L"slave-msg");
-// 
-// 		ipc::header new_header;
-// 		new_header.id = 9;
-// 		new_header.flags = 3;
-// 		new_header.message_size = msgText.size();
-// 		if(!::WriteFile(write_pipe, &new_header, (DWORD)sizeof(new_header), &written_bytes, nullptr)) {
-// 			std::wcout << L"Write header to pipe fail: " << ::GetLastError() << std::endl;
-// 		}
-// 		std::wcout << L"Header send" << std::endl;
-// 
-// 		std::vector<uint8_t> msg = utils::wstring_convert_to_bytes(msgText);
-// 		if(!::WriteFile(write_pipe, msg.data(), (DWORD)msg.size(), &written_bytes, nullptr)) {
-// 			std::wcout << L"Write message pipe fail: " << ::GetLastError() << std::endl;
-// 		}
-// 
-// 		::Sleep(15000);
-// 
-// 		::CloseHandle(read_pipe);
-// 		::CloseHandle(write_pipe);
 	}
 
     return 0;

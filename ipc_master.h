@@ -43,6 +43,7 @@ private:
 
 private:
 	std::mutex m_write_lock;
+	std::atomic_bool m_comm_started = false;
 	HANDLE m_shutdown_event = nullptr;
 	std::function<void(const std::vector<uint8_t>& message, std::vector<uint8_t>& response)> m_callback;
 

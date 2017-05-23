@@ -31,7 +31,7 @@ slave::slave(HANDLE read_pipe, HANDLE write_pipe, message_callback_fn fn_callbac
 slave::~slave()
 {
 	try {
-		stop();
+		release();
 	} catch(...) {}
 }
 
@@ -83,6 +83,8 @@ void slave::release()
 
 void slave::close_comm()
 {
+	std::wcout << L"Closing communication..." << std::endl;
+
 	// Set shutdown event (will stop all response wait)
 	if(m_shutdown_event != nullptr) {
 		::SetEvent(m_shutdown_event);
@@ -166,6 +168,7 @@ bool slave::send(std::vector<uint8_t>& message, std::vector<uint8_t>& response)
 
 bool slave::send_response(std::shared_ptr<ipc::header> header, std::vector<uint8_t>& response)
 {
+	std::wcout << L"DBG:Sending response" << std::endl;
 	DWORD written_bytes = 0;
 	//////////////////////////////////////////////////////////////////////////
 	// Only WriteFile at the time
@@ -214,18 +217,19 @@ DWORD WINAPI slave::read_thread_proc(LPVOID lpParameter)
 
 DWORD slave::read_thread()
 {
-	auto header_data = std::make_unique<header>();
 	auto header_size = sizeof(header);
 
 	DWORD read_bytes = 0;
 
 	while(true) {
 
+		auto header_data = std::make_unique<header>();
+
 		//////////////////////////////////////////////////////////////////////////
 		// Read HEADER
 		if(!::ReadFile(m_slave.read_pipe, header_data.get(), header_size, &read_bytes, nullptr)) {
 			DWORD last_error = ::GetLastError();
-			std::wcout << L"Error read pipe: " << std::dec << last_error << std::endl;
+			std::wcout << L"Error read1 pipe: " << std::dec << last_error << std::endl;
 			if(last_error == ERROR_BROKEN_PIPE || last_error == ERROR_PIPE_NOT_CONNECTED) {
 				// ERROR_BROKEN_PIPE write handle closed died
 				// ERROR_PIPE_NOT_CONNECTED master died
@@ -253,7 +257,7 @@ DWORD slave::read_thread()
 			read_bytes = 0;
 			if(!::ReadFile(m_slave.read_pipe, message.data(), header_data->message_size, &read_bytes, nullptr)) {
 				DWORD last_error = ::GetLastError();
-				std::wcout << L"Error read pipe: " << std::dec << last_error << std::endl;
+				std::wcout << L"Error read2 pipe: " << std::dec << last_error << std::endl;
 				if(last_error == ERROR_BROKEN_PIPE || last_error == ERROR_PIPE_NOT_CONNECTED) {
 					// ERROR_BROKEN_PIPE slave died
 					// ERROR_PIPE_NOT_CONNECTED master died
