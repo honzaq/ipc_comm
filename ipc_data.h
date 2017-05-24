@@ -33,14 +33,14 @@ struct header {
 };
 //////////////////////////////////////////////////////////////////////////
 
-struct client_data {
+struct client_connection {
 	HANDLE read_pipe = nullptr;
 	HANDLE write_pipe = nullptr;
 };
 
 //////////////////////////////////////////////////////////////////////////
 
-typedef std::function<void(const std::vector<uint8_t>& message, std::vector<uint8_t>& response)> message_callback_fn;
+using message_callback_fn = std::function<void(const std::vector<uint8_t>& message, std::vector<uint8_t>& response)>;
 
 //////////////////////////////////////////////////////////////////////////
 // Message

@@ -10,6 +10,6 @@
 #include <stdio.h>
 #include <tchar.h>
 
-
-
-// TODO: reference additional headers your program requires here
+#include <windows.h>
+#include "spdlog/spdlog.h"
+#include "logger_holder.h"

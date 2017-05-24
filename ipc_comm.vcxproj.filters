@@ -1,10 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
     <Filter Include="Main">
       <UniqueIdentifier>{284b3333-e0e0-4dbe-9acc-295804daddd2}</UniqueIdentifier>
     </Filter>
@@ -16,9 +12,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="cmdp.h">
       <Filter>Comm\external</Filter>
@@ -44,6 +37,13 @@
     <ClInclude Include="ipc_slave.h">
       <Filter>Comm</Filter>
     </ClInclude>
+    <ClInclude Include="logger_holder.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc_common.h">
+      <Filter>Comm</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -54,6 +54,9 @@
       <Filter>Comm</Filter>
     </ClCompile>
     <ClCompile Include="ipc_slave.cpp">
+      <Filter>Comm</Filter>
+    </ClCompile>
+    <ClCompile Include="ipc_common.cpp">
       <Filter>Comm</Filter>
     </ClCompile>
   </ItemGroup>

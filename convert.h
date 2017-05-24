@@ -28,5 +28,34 @@ static inline std::vector<uint8_t> wstring_convert_to_bytes(std::wstring& str)
 	std::string string = converter.to_bytes(str);
 	return std::vector<uint8_t>(string.begin(), string.end());
 }
+static inline std::string to_utf8(std::wstring& str)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+	return converter.to_bytes(str);
+}
+static inline std::string to_utf8(const wchar_t* str)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> converter;
+	return converter.to_bytes(str);
+}
+
+static inline std::string win32_error_to_ansi(DWORD errorCode)
+{
+	LPSTR messageBuffer = nullptr;
+	size_t size = ::FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS
+		, NULL
+		, errorCode
+		, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)
+		, (LPSTR)&messageBuffer
+		, 0
+		, NULL);
+
+	std::string message(messageBuffer, size);
+
+	//Free the buffer.
+	::LocalFree(messageBuffer);
+
+	return message;
+}
 
 } // end of namespace utils
